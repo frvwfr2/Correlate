@@ -25,6 +25,7 @@ inFile = []
 server = ""
 serverReplace = True
 userReplace = True
+replaceAll = -1
 
 def getPrevBlank(infile, lineNumber):	#Locates the first blank line above the input
 	blankLine = -1
@@ -108,7 +109,7 @@ def findValues():
 				if val == GUIDmatch.group(1):
 					dupeFlag = True
 			if dupeFlag == False:
-				print "Added GUID to tables: " + GUIDmatch.group(1) + " " + str(lineNum)
+				print "Added GUID to tables: " + GUIDmatch.group(1).ljust(40) + str(lineNum)
 				type.append("GUID")
 				name.append("GUID")
 				match = GUIDmatch.group(1)
@@ -121,7 +122,7 @@ def findValues():
 					dupeFlag = True
 					#print "Dupe found"
 			if dupeFlag == False:
-				print "Added DSID to tables: " + DSIDmatch.group(1) + " " + str(lineNum)
+				print "Added DSID to tables: " + DSIDmatch.group(1).ljust(40) + str(lineNum)
 				type.append("DSID")
 				name.append("DSID")
 				match = DSIDmatch.group(1)
@@ -134,14 +135,14 @@ def findValues():
 				if val == ExEmatch.group(1):
 					dupeFlag = True
 			if dupeFlag == False:
-				print "Added ExE  to tables: " + ExEmatch.group(1) + " " + str(lineNum)
+				print "Added ExE  to tables: " + ExEmatch.group(1).ljust(40) + str(lineNum)
 				type.append("ExE")
 				name.append(ExEmatch.group(2))
 				match = ExEmatch.group(1)
 				otherInfo(name, lineNum, match, line.strip() + "\n" + line1.strip() + "\n" + line2.strip())
 		elif (serverMatch and server == ""):	#If server matches AND server has not already been found
 			server = serverMatch.group(1)
-			serverReplace = int(raw_input("Do you want to replace the server name (" + server + ") with {Server}?\n1 for Yes, 0 for No:\t")) 
+			serverReplace = int(raw_input("Do you want to replace the server name (" + server + ") with {Server}?\n1 for yes\n0 for no: ")) 
 	return "Values:\t" + str(value) + "\nSubstitutions: " + str(substitution) + "\nName:\t" + str(name)
 
 def otherInfo(name, lineNum, match, string):
@@ -161,7 +162,9 @@ def otherInfo(name, lineNum, match, string):
 		#print "Blank: " + str(blankLine) + " Original: " + str(originalLine[-1]) + " Infile: " + inFile[-1] 
 
 def getWriter(file):	#Writes the "get" statements for the values, always goes off of [0] value in lists
-	print "----------------------------Leading text--------------------------------\n" + surroundingLines[0].strip() + "\n------------------------------------------------------------------------\nName:\t" + name[0] + "\tValue:\t" + value[0] + "\nFile:\t" + inFile[0] + "\tOrigLine:\t" + str(originalLine[0]) + "\tGetLine:\t" + str(blankLine[0])
+	global replaceAll
+	if replaceAll == -1:
+		replaceAll = int(raw_input("Do you want to auto-replace all recommended values?\n1 for yes\n0 for no: "))
 	paramName = substitution[0][1:len(substitution[0])-1]	#skips the opening { and closing }
 	recommendedL = " "
 	if type[0] == "DSID":									#If type is DSID
@@ -173,9 +176,16 @@ def getWriter(file):	#Writes the "get" statements for the values, always goes of
 	elif type[0] == "GUID":									#If type is GUID...
 		recommendedL = "uid</string><string>"
 		recommendedR = "</string><string>id"
+	print "----------------------------Leading text--------------------------------\n" + surroundingLines[0].strip() + "\n------------------------------------------------------------------------\nName:\t" + name[0] + "\tValue:\t" + value[0] + "\nFile:\t" + inFile[0] + "\nOrigLine:\t" + str(originalLine[0]) + "\tGetLine:\t" + str(blankLine[0]) + "\n"
+	if replaceAll == True and recommendedL != " ":		#If user chose to replace all AND a match was found, write then return
+		leftBound = recommendedL
+		rightBound = recommendedR
+		string = "\tweb_reg_save_param_ex(\"ParamName=" + paramName + "\",\"LB=" + leftBound + "\",\"RB=" + rightBound + "\",\"Ordinal=1\",SEARCH_FILTERS,\"Scope=Body\",\"IgnoreRedirections=Yes\",\"RequestUrl=*/sasamf*\",LAST);"	#Builds entire string to catch input
+		file.write("\n" + string + "\n")
+		return
 	if (recommendedL != " "):								#If a type was matched and recommended values have changed
 		print "Recommended Left Bound: \t" + recommendedL + "\nRecommended Right Bound:\t" + recommendedR		#Prints out the recommended bounds
-		leftBound = raw_input("1 for recommended, 2 to skip, or enter Left bound: ")	#Get input
+		leftBound = raw_input("1: recommended\n2: skip\nor enter Left bound: ")	#Get input
 		if leftBound == "1":								#If 1, use rec values
 			leftBound  = recommendedL						#Set bounds to use values
 			rightBound = recommendedR
@@ -242,6 +252,9 @@ def dataWriter(file):
 		dataOut.write("------------------------------------------------------------------------------------------------------------------------------------------------\n" + str(val) + "\t" + str(permSubstitution[count]) + "\t" + str(permBlankLine[count]) + "\t" + str(permOriginalLine[count]) + "\t" + str(permName[count]) +  "\t" + str(permInFile[count]) + "\n\n" + permSurroundingLines[count] + "\n------------------------------------------------------------------------------------------------------------------------------------------------\n\n")
 		count += 1
 
+	if serverReplace == True:
+		dataOut.write("\n" + server + " replaced with {Server}")
+	dataOut.close
 
 
 
